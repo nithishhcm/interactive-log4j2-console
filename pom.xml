@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+                             http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+    <!-- POM version — always 4.0.0 for Maven 2/3/4 projects -->
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- ── Project coordinates ──────────────────────────────────────────── -->
+    <!-- groupId: your organisation/package root (reverse-domain style)     -->
+    <groupId>com.example</groupId>
+
+    <!-- artifactId: the name of the JAR Maven produces                     -->
+    <artifactId>log4j2-demo</artifactId>
+
+    <!-- version: label for this build                                       -->
+    <version>1.0-SNAPSHOT</version>
+
+    <!-- packaging: "jar" means Maven compiles + packages a .jar file       -->
+    <packaging>jar</packaging>
+
+    <!-- Human-readable project name shown in reports                        -->
+    <name>Log4j2 Beginner Demo</name>
+
+    <!-- ── Global property: keep version in one place ───────────────────── -->
+    <properties>
+        <!-- Java source/target version -->
+        <maven.compiler.source>11</maven.compiler.source>
+        <maven.compiler.target>11</maven.compiler.target>
+
+        <!-- UTF-8 prevents encoding warnings during compilation             -->
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+        <!-- Single place to change the Log4j2 version for the whole project -->
+        <log4j2.version>2.23.1</log4j2.version>
+    </properties>
+
+    <!-- ── Dependencies ─────────────────────────────────────────────────── -->
+    <dependencies>
+
+        <!--
+            log4j-api  → the PUBLIC interface (Logger, LogManager, etc.)
+            Your source code imports only from this artifact, never from -core.
+            ⚠ BEGINNER MISTAKE: adding ONLY -api without -core means
+              Log4j2 has no implementation at runtime → you'll get a
+              "No log4j2 configuration file found" warning and no output.
+        -->
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-api</artifactId>
+            <version>${log4j2.version}</version>
+            <!-- scope defaults to "compile" which is exactly what we want  -->
+        </dependency>
+
+        <!--
+            log4j-core → the IMPLEMENTATION (reads config, writes to files, etc.)
+            ⚠ BEGINNER MISTAKE: marking this as <scope>test</scope> or
+              <scope>provided</scope> → it won't be on the runtime classpath
+              and logging will silently fall back to a no-op.
+        -->
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-core</artifactId>
+            <version>${log4j2.version}</version>
+        </dependency>
+
+    </dependencies>
+
+    <!-- ── Build plugins ─────────────────────────────────────────────────── -->
+    <build>
+        <plugins>
+            <!--
+                maven-jar-plugin: tells Maven which class has the main() method
+                so you can run the JAR with: java -jar target/log4j2-demo-1.0-SNAPSHOT.jar
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.3.0</version>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <!-- Fully-qualified name of your main class -->
+                            <mainClass>com.example.App</mainClass>
+                        </manifest>
+                    </archive>
+                </configuration>
+            </plugin>
+
+            <!--
+                exec-maven-plugin: lets you run the app directly with Maven
+                using the command:  mvn compile exec:java
+                This is the easiest way to run during development.
+            -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.2.0</version>
+                <configuration>
+                    <mainClass>com.example.App</mainClass>
+                </configuration>
+            </plugin>
+
+            <!--
+                maven-shade-plugin: bundles all dependencies (log4j-api, log4j-core, etc.)
+                INTO the output JAR, creating a self-contained "fat JAR" (uber JAR).
+                Without this, running:  java -jar target/log4j2-demo-1.0-SNAPSHOT.jar
+                fails with ClassNotFoundException because Log4j2 JARs are not on the
+                classpath at runtime.
+                With this plugin, all classes are merged into one JAR so the above
+                command works out of the box.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.5.2</version>
+                <executions>
+                    <execution>
+                        <!-- Bind to the "package" lifecycle phase -->
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <!-- Suppress the extra "original-*.jar" file Maven Shade creates -->
+                            <shadedArtifactAttached>false</shadedArtifactAttached>
+                            <transformers>
+                                <!--
+                                    ManifestResourceTransformer: writes the Main-Class attribute
+                                    into the bundled JAR's MANIFEST.MF so java -jar works.
+                                -->
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>com.example.App</mainClass>
+                                </transformer>
+                                <!--
+                                    ServicesResourceTransformer: merges META-INF/services files
+                                    from all bundled JARs. Required for Log4j2's ServiceLoader-based
+                                    plugin discovery to work correctly inside a fat JAR.
+                                    This is the standard approach that requires no extra dependencies.
+                                -->
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                            </transformers>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

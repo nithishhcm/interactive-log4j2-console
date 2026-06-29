@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Log4j2 configuration file.
+    ⚠ BEGINNER MISTAKE: This file MUST be named exactly "log4j2.xml" (case-sensitive
+      on Linux/Mac) and placed in src/main/resources/ so Maven copies it to the
+      root of the classpath (target/classes/). If it's anywhere else, Log4j2
+      won't find it and will print:
+        "ERROR StatusLogger No log4j2 configuration file found."
+-->
+<Configuration status="WARN">
+    <!--
+        status="WARN" controls Log4j2's own INTERNAL logging (meta-logging).
+        Set to "DEBUG" temporarily if Log4j2 itself seems broken and you need
+        to see why it can't load the config.
+    -->
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         APPENDERS — WHERE log messages go (console, file, socket, etc.)
+         ═══════════════════════════════════════════════════════════════════ -->
+    <Appenders>
+
+        <!-- ── 1. Console Appender ───────────────────────────────────────
+             Writes every log event to standard output (your terminal).
+             "target" defaults to SYSTEM_OUT; use SYSTEM_ERR to write to stderr.
+        -->
+        <Console name="ConsoleAppender" target="SYSTEM_OUT">
+            <!--
+                PatternLayout controls HOW each line is formatted.
+                Pattern breakdown:
+                  %d{yyyy-MM-dd HH:mm:ss.SSS}  → date/time with milliseconds
+                  %-5level                      → log level, left-padded to 5 chars
+                  %logger{36}                   → logger name, max 36 chars
+                  %msg                          → the actual log message
+                  %n                            → newline (OS-independent)
+                  %throwable                    → prints full stack trace (if any)
+            -->
+            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%logger{36}] - %msg%n%throwable"/>
+        </Console>
+
+        <!-- ── 2. RollingFile Appender ──────────────────────────────────
+             Writes log events to a file.
+             "Rolling" means it automatically creates a new file when the
+             current one gets too large or when a day rolls over.
+
+             immediateFlush="true" — flush the write buffer to disk after
+             EVERY log event. This is critical for interactive apps where
+             the JVM might exit before a buffered write completes.
+             Without this, lines typed during the session may never reach
+             the file if the JVM terminates abruptly.
+        -->
+        <RollingFile name="RollingFileAppender"
+                     fileName="logs/app.log"
+                     filePattern="logs/app-%d{yyyy-MM-dd}-%i.log.gz"
+                     immediateFlush="true">
+            <!--
+                fileName    → the CURRENT (active) log file being written to
+                filePattern → naming pattern for ARCHIVED (rolled) log files
+                              %d{...} → date when the file was rolled
+                              %i      → index (1, 2, 3…) within the same day
+                              .gz     → Log4j2 will gzip old files automatically!
+            -->
+
+            <!-- Same pattern as console, so both outputs look identical -->
+            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%logger{36}] - %msg%n%throwable"/>
+
+            <!--
+                Policies: WHEN to roll over to a new file.
+                You can combine multiple policies; the first one that triggers wins.
+            -->
+            <Policies>
+                <!--
+                    TimeBasedTriggeringPolicy: roll over at midnight every day.
+                    interval="1" means "every 1 unit of the smallest pattern unit"
+                    (days, in this case, because filePattern uses %d{yyyy-MM-dd}).
+                -->
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+
+                <!--
+                    SizeBasedTriggeringPolicy: also roll over when the file
+                    reaches 10 MB, regardless of the date.
+                    ⚠ BEGINNER MISTAKE: omitting Policies means the file grows forever.
+                -->
+                <SizeBasedTriggeringPolicy size="10 MB"/>
+            </Policies>
+
+            <!--
+                DefaultRolloverStrategy: how many ARCHIVED files to keep.
+                max="7" means keep 7 old log files, then delete the oldest.
+            -->
+            <DefaultRolloverStrategy max="7"/>
+        </RollingFile>
+
+        <!-- ── 3. IsolatedFileAppender ────────────────────────────────────
+             A plain (non-rolling) File appender dedicated exclusively to
+             com.example.EventService log events.
+
+             immediateFlush="true" — same reason as RollingFile above;
+             ensures every event is persisted immediately.
+        -->
+        <File name="IsolatedFileAppender"
+              fileName="logs/isolated-events.log"
+              append="true"
+              immediateFlush="true">
+            <!--
+                Enriched pattern: includes [EVENT] marker so grep is easy:
+                  grep "\[EVENT\]" logs/isolated-events.log
+            -->
+            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [EVENT] [%logger{36}] - %msg%n%throwable"/>
+        </File>
+
+    </Appenders>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         LOGGERS — WHO logs (which Java packages/classes) and at what LEVEL
+         ═══════════════════════════════════════════════════════════════════ -->
+    <Loggers>
+
+        <!--
+            ── Dedicated Logger for com.example.EventService ─────────────────
+            name        → matches the logger name used in EventService.java:
+                          LogManager.getLogger(EventService.class)
+                          resolves to "com.example.EventService"
+
+            level       → DEBUG: capture every DEBUG/INFO/WARN/ERROR from this
+                          class (more verbose than the root INFO threshold).
+
+            additivity  → FALSE — THE KEY ISOLATION SWITCH.
+                          Without it, Log4j2 would ALSO pass every event up to
+                          the Root logger, causing it to appear a second time in
+                          RollingFileAppender (app.log). Setting it to false
+                          breaks the parent chain: events from EventService stop
+                          here and never reach Root.
+
+            AppenderRefs → two targets:
+              1. ConsoleAppender      — operators see events in real-time on stdout.
+              2. IsolatedFileAppender — persists events to isolated-events.log
+                                        for dedicated event-stream monitoring.
+        -->
+        <Logger name="com.example.EventService" level="DEBUG" additivity="false">
+            <!-- ① Real-time visibility on the console (shared with root output) -->
+            <AppenderRef ref="ConsoleAppender"/>
+            <!-- ② Dedicated isolated file — EventService events ONLY -->
+            <AppenderRef ref="IsolatedFileAppender"/>
+        </Logger>
+
+        <!--
+            Root logger: the catch-all logger that handles any class that doesn't
+            have its own specific <Logger> entry.
+            level="INFO" means: log INFO, WARN, ERROR, and FATAL.
+                                 TRACE and DEBUG messages are IGNORED.
+
+            ⚠ BEGINNER MISTAKE: leaving the level as TRACE or DEBUG in production
+              generates enormous log files and slows the application down.
+
+            AppenderRef ties this logger to the appenders above.
+            Removing an AppenderRef silently drops output to that destination.
+        -->
+        <Root level="INFO">
+            <!-- Send all Root-level events to both the console AND the rolling file -->
+            <AppenderRef ref="ConsoleAppender"/>
+            <AppenderRef ref="RollingFileAppender"/>
+        </Root>
+
+    </Loggers>
+
+</Configuration>
