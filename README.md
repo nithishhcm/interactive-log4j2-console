@@ -1,3 +1,8 @@
+![Java](https://img.shields.io/badge/Java-17-orange)
+![Maven](https://img.shields.io/badge/Maven-Build_Tool-red)
+![Log4j2](https://img.shields.io/badge/Log4j2-Asynchronous-blue)
+![Architecture](https://img.shields.io/badge/Architecture-Decoupled-green)
+![License: MIT](https://img.shields.io/badge/License-MIT-purple.svg)
 # Interactive Log4j2 Console App
 
 A production-grade, interactive Java console application built using Maven that demonstrates decoupled software architecture and advanced asynchronous runtime logging using **Apache Log4j2**.
