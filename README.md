@@ -17,6 +17,15 @@ A production-grade, interactive Java console application built using Maven that 
 *   **Optimized Repository Management:** Includes an automated `.gitignore` strategy that filters out heavy build environments, ensuring a clean and light footprint.
 
 ---
+## CONSOLE
+
+<img width="1918" height="1078" alt="image" src="https://github.com/user-attachments/assets/f0525b00-4639-4900-aca5-b4fa6a71052c" />
+
+## LOG FILE
+
+<img width="1912" height="1036" alt="image" src="https://github.com/user-attachments/assets/61a056c6-f3bd-4458-9f08-a85d803cda20" />
+
+
 
 ## 📂 Project Directory Structure
 
